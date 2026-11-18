@@ -1,0 +1,53 @@
+{
+  "_comment": "示例配置：单文件 HTML 交付（题库类）。复制到 <work>/contract/gate.config.json 后按项目改。",
+  "requiredFiles": [
+    { "path": "contract/SPEC.md" },
+    { "path": "contract/validate.mjs" },
+    { "path": "a/index.html", "hint": "生产者 A 的产物" },
+    { "path": "a/data.json" },
+    { "path": "a/NOTES.md", "hint": "必须含自检证据与已知不足" },
+    { "path": "b/index.html" },
+    { "path": "b/data.json" },
+    { "path": "b/NOTES.md" },
+    { "path": "audit/KEY.md", "hint": "复核员的独立基线" },
+    { "path": "audit/REVIEW.md" },
+    { "path": "audit/FINAL_REVIEW.md", "optional": true },
+    { "path": "final/index.html" },
+    { "path": "final/MERGE_NOTES.md" },
+    { "path": "ROUNDS.md" }
+  ],
+
+  "idsCoverage": {
+    "expect": ["demo-1", "demo-2", "demo-3"],
+    "files": ["a/index.html", "b/index.html", "final/index.html"]
+  },
+
+  "selfContained": {
+    "files": ["a/index.html", "b/index.html", "final/index.html"],
+    "forbid": [
+      "<script[^>]+src\\s*=",
+      "<link[^>]+href\\s*=\\s*[\"']https?://",
+      "(?:src|href)\\s*=\\s*[\"']https?://",
+      "url\\(\\s*[\"']?https?://",
+      "\\bfetch\\s*\\(",
+      "\\bimport\\s*\\(",
+      "@import\\s+url"
+    ],
+    "mustHave": ["<meta[^>]+charset=[\"']?utf-8", "<!doctype html>"]
+  },
+
+  "jsSyntax": { "files": ["a/index.html", "b/index.html", "final/index.html"] },
+
+  "byteIdentical": [
+    { "left": "final/index.html", "right": "../../delivery/交付物.html" }
+  ],
+
+  "mustMatch": [
+    { "path": "a/NOTES.md", "patterns": ["不足", "validate"] },
+    { "path": "b/NOTES.md", "patterns": ["不足", "validate"] },
+    { "path": "audit/REVIEW.md", "patterns": ["blocker", "取谁"] },
+    { "path": "final/MERGE_NOTES.md", "patterns": ["sha256", "取"] }
+  ],
+
+  "projectValidator": { "path": "contract/validate.mjs", "enabled": true }
+}
