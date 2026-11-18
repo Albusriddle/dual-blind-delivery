@@ -1,83 +1,115 @@
 #!/usr/bin/env node
 /**
- * blindness.mjs — 双盲隔离检查
+ * blindness.mjs — 双盲隔离检查  v2
  *
- *   node scripts/blindness.mjs <work-dir> [--a a] [--b b] [--max-sim 0.55]
+ *   node blindness.mjs <work-dir> [--a a] [--b b] [--max-sim 0.05] [--allow-sim]
  *
- * 检查三件事：
- *   1. 交叉引用：A 的产物里是否出现 B 的目录名/路径（反之亦然）
- *   2. 独有措辞：抽 A 的高频短语，看 B 是否命中（说明抄了同一份草稿）
- *   3. 文本相似度：8-gram shingle 的 Jaccard；超过阈值报警（不阻断，交人判断）
- *
- * 退出码：0 = 无交叉引用；1 = 发现交叉引用（阻断）。
+ * 四类检查，任一命中即 FAIL（exit 1）：
+ *   1. 交叉引用：A 产物里出现对方目录路径（兼容 / 与 \）
+ *   2. 同名文件字节相同：两侧存在完全相同文件（说明复制而非独立产出）
+ *   3. 整句重合率：按句切分（≥12 字）取 Jaccard，超过阈值判失败（--allow-sim 降级为 warn）
+ *   4. 高频短语重合：只做提示（同主题天然重合，不作为判据）
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
-const args = process.argv.slice(2);
-const WORK = path.resolve(args[0] || '.');
-const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const DIR_A = opt('a', 'a');
-const DIR_B = opt('b', 'b');
-const MAX_SIM = parseFloat(opt('max-sim', '0.55'));
+const argv = process.argv.slice(2);
+if (!argv.length || argv[0].startsWith('--')) {
+  console.error('用法: node blindness.mjs <work-dir> [--a a] [--b b] [--max-sim 0.05] [--allow-sim]');
+  process.exit(2);
+}
+const WORK = path.resolve(argv[0]);
+if (!fs.existsSync(WORK)) { console.error(`FATAL 工作区不存在: ${WORK}`); process.exit(2); }
+const opt = (k, d) => {
+  const i = argv.indexOf('--' + k);
+  if (i < 0) return d;
+  const v = argv[i + 1];
+  if (v === undefined || v.startsWith('--')) { console.error(`FATAL 参数 --${k} 缺少取值`); process.exit(2); }
+  return v;
+};
+const flag = k => argv.includes('--' + k);
+const DIR_A = opt('a', 'a'), DIR_B = opt('b', 'b');
+const MAX_SIM = parseFloat(opt('max-sim', '0.05'));
+const ALLOW_SIM = flag('allow-sim');
 
 const C = { g: '\x1b[32m', r: '\x1b[31m', y: '\x1b[33m', d: '\x1b[2m', x: '\x1b[0m', b: '\x1b[1m' };
 const ERR = [], WARN = [], OK = [];
+const sha = p => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 
 const walk = (dir, acc = []) => {
   if (!fs.existsSync(dir)) return acc;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name.startsWith('.')) continue;
+    if (e.name.startsWith('.') || e.name === 'node_modules') continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) walk(p, acc);
-    else if (/\.(md|txt|html|json|mjs|js|ts|css)$/i.test(e.name)) acc.push(p);
+    else if (/\.(md|txt|html|json|mjs|js|ts|css|py)$/i.test(e.name)) acc.push(p);
   }
   return acc;
 };
-const readAll = dir => walk(dir).map(p => ({ p, t: fs.readFileSync(p, 'utf8') }));
 
-const A = readAll(path.join(WORK, DIR_A));
-const B = readAll(path.join(WORK, DIR_B));
+const dirA = path.join(WORK, DIR_A), dirB = path.join(WORK, DIR_B);
+const A = walk(dirA), B = walk(dirB);
 if (!A.length || !B.length) {
   console.log(`${C.r}FAIL${C.x} 目录为空或不存在：${DIR_A}(${A.length}) / ${DIR_B}(${B.length})`);
   process.exit(1);
 }
 
 /* ---------- 1. 交叉引用 ---------- */
-const refRe = (dirName) => new RegExp(
-  `(^|[^\\w/.-])(\\.{0,2}/)?${dirName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/`, 'i'
-);
+const refOf = name => new RegExp(`(^|[^\\w.-])(\\.{0,2}[\\\\/])?${escapeRe(name)}[\\\\/]`, 'i');
+function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 for (const [side, mine, other] of [['A', A, DIR_B], ['B', B, DIR_A]]) {
-  const hits = [];
-  for (const f of mine) {
-    if (refRe(other).test(f.t)) hits.push(path.relative(WORK, f.p));
-  }
+  const hits = mine.filter(p => refOf(other).test(fs.readFileSync(p, 'utf8')))
+                   .map(p => path.relative(WORK, p));
   if (hits.length) ERR.push(`${side} 侧产物引用了对方目录 "${other}/"：${hits.join(', ')}`);
-  else OK.push(`${side} 侧无对 "${other}/" 的路径引用`);
+  else OK.push(`${side} 侧无对 "${other}/" 的路径引用（含 Windows 反斜杠）`);
 }
 
-/* ---------- 2. 独有措辞抽样 ---------- */
-const zhWords = s => (s.match(/[\u4e00-\u9fa5]{4,}/g) || []);
-const freq = arr => { const m = new Map(); for (const w of arr) m.set(w, (m.get(w) || 0) + 1); return [...m.entries()].sort((a, b) => b[1] - a[1]); };
-const topA = freq(zhWords(A.map(f => f.t).join('\n'))).slice(0, 40).map(x => x[0]);
-const topB = freq(zhWords(B.map(f => f.t).join('\n'))).slice(0, 40).map(x => x[0]);
-const textB = B.map(f => f.t).join('\n');
-const textA = A.map(f => f.t).join('\n');
-const aInB = topA.filter(w => textB.includes(w));
-const bInA = topB.filter(w => textA.includes(w));
-OK.push(`A 高频短语 ${topA.length} 条，其中 ${aInB.length} 条也出现在 B（自然重合，仅供参考）`);
-OK.push(`B 高频短语 ${topB.length} 条，其中 ${bInA.length} 条也出现在 A`);
+/* ---------- 2. 同名文件字节相同 ---------- */
+const relName = (list, dir) => new Map(list.map(p => [path.relative(dir, p).split(path.sep).join('/'), p]));
+const ma = relName(A, dirA), mb = relName(B, dirB);
+const identical = [];
+for (const [k, p] of ma) {
+  if (mb.has(k) && sha(p) === sha(mb.get(k))) identical.push(k);
+}
+if (identical.length) ERR.push(`A/B 存在逐字节相同的文件（疑似复制而非独立产出）：${identical.join(', ')}`);
+else OK.push('A/B 无逐字节相同的文件');
 
-/* ---------- 3. 相似度（8-gram） ---------- */
-const norm = s => s.replace(/\s+/g, '').replace(/[<>{}()\[\];,."'`]/g, '');
-const shingles = (s, k = 8) => { const t = norm(s), set = new Set(); for (let i = 0; i + k <= t.length; i++) set.add(t.slice(i, i + k)); return set; };
-const sa = shingles(A.map(f => f.t).join('\n'));
-const sb = shingles(B.map(f => f.t).join('\n'));
+/* ---------- 3. 整句重合率 ---------- */
+const sentences = files => {
+  const set = new Set();
+  for (const f of files) {
+    const t = fs.readFileSync(f, 'utf8').replace(/\s+/g, ' ');
+    for (const s of t.split(/[。！？；\n]+/)) {
+      const z = s.trim();
+      if (z.length >= 12) set.add(z);
+    }
+  }
+  return set;
+};
+const sa = sentences(A), sb = sentences(B);
 let inter = 0;
 for (const s of sa) if (sb.has(s)) inter++;
-const jac = inter / Math.max(1, (sa.size + sb.size - inter));
-if (jac > MAX_SIM) WARN.push(`文本相似度 ${(jac * 100).toFixed(1)}% > ${(MAX_SIM * 100).toFixed(0)}% —— 可能共享草稿，请人工判断`);
-else OK.push(`文本相似度 ${(jac * 100).toFixed(1)}%（阈值 ${(MAX_SIM * 100).toFixed(0)}%）`);
+const jac = inter / Math.max(1, sa.size + sb.size - inter);
+const pct = (jac * 100).toFixed(1);
+if (jac > MAX_SIM) {
+  const msg = `整句重合率 ${pct}% > ${(MAX_SIM * 100).toFixed(0)}%（${inter} 句完全相同）—— 可能共享草稿`;
+  if (ALLOW_SIM) WARN.push(msg + '（--allow-sim 已降级）');
+  else ERR.push(msg + '；如确认同主题自然重合，用 --allow-sim 显式放行');
+} else OK.push(`整句重合率 ${pct}%（阈值 ${(MAX_SIM * 100).toFixed(0)}%）`);
+
+/* ---------- 4. 高频短语（仅提示） ---------- */
+const zh = s => (s.match(/[\u4e00-\u9fa5]{6,}/g) || []);
+const freqTop = files => {
+  const m = new Map();
+  for (const f of files) for (const w of zh(fs.readFileSync(f, 'utf8'))) m.set(w, (m.get(w) || 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(x => x[0]);
+};
+const tA = freqTop(A), tB = freqTop(B);
+const textA = A.map(p => fs.readFileSync(p, 'utf8')).join('\n');
+const textB = B.map(p => fs.readFileSync(p, 'utf8')).join('\n');
+const shareA = tA.filter(w => textB.includes(w)).length;
+WARN.push(`高频短语自然重合：A ${shareA}/${tA.length}、B ${tB.filter(w => textA.includes(w)).length}/${tB.length}（仅提示，不作判据）`);
 
 /* ---------- 输出 ---------- */
 console.log(`${C.b}== blindness ${path.relative(process.cwd(), WORK) || '.'} ==${C.x}`);
@@ -85,5 +117,5 @@ OK.forEach(m => console.log(`${C.g}  ok${C.x} ${m}`));
 WARN.forEach(m => console.log(`${C.y}warn${C.x} ${m}`));
 ERR.forEach(m => console.log(`${C.r}FAIL${C.x} ${m}`));
 console.log('');
-if (ERR.length) { console.log(`${C.r}隔离检查未通过（${ERR.length}）${C.x}`); process.exit(1); }
+if (ERR.length) { console.log(`${C.r}隔离检查未通过（${ERR.length} 项）${C.x}`); process.exit(1); }
 console.log(`${C.g}BLINDNESS PASS${C.x}`);

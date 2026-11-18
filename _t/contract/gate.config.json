@@ -1,0 +1,190 @@
+{
+  "version": 2,
+  "requiredFiles": [
+    {
+      "path": "contract/SPEC.md",
+      "stage": "G1"
+    },
+    {
+      "path": "contract/KEY_SPEC.md",
+      "stage": "G1"
+    },
+    {
+      "path": "a/index.html",
+      "stage": "G1"
+    },
+    {
+      "path": "a/data.json",
+      "stage": "G1"
+    },
+    {
+      "path": "a/NOTES.md",
+      "stage": "G1"
+    },
+    {
+      "path": "b/index.html",
+      "stage": "G1"
+    },
+    {
+      "path": "b/data.json",
+      "stage": "G1"
+    },
+    {
+      "path": "b/NOTES.md",
+      "stage": "G1"
+    },
+    {
+      "path": "audit/KEY.md",
+      "stage": "G2"
+    },
+    {
+      "path": "audit/REVIEW.md",
+      "stage": "G3"
+    },
+    {
+      "path": "final/index.html",
+      "stage": "G4"
+    },
+    {
+      "path": "final/data.json",
+      "stage": "G4"
+    },
+    {
+      "path": "final/MERGE_NOTES.md",
+      "stage": "G4"
+    },
+    {
+      "path": "ROUNDS.md",
+      "stage": "G4"
+    }
+  ],
+  "idsCoverage": {
+    "expect": [
+      "demo-1",
+      "demo-2",
+      "demo-3"
+    ],
+    "files": [
+      "a/index.html",
+      "b/index.html",
+      {
+        "path": "final/index.html",
+        "stage": "G4"
+      }
+    ],
+    "idPattern": "id=\"(demo-[0-9]+)\"",
+    "stage": "G1"
+  },
+  "selfContained": {
+    "files": [
+      "a/index.html",
+      "b/index.html",
+      {
+        "path": "final/index.html",
+        "stage": "G4"
+      }
+    ],
+    "forbid": [
+      "<script[^>]+src\\s*=",
+      "<link[^>]+href\\s*=\\s*(?![\"\\']?(?:data:|#))",
+      "<(?:img|video|audio|iframe|source)[^>]+src\\s*=",
+      "(?:src|href)\\s*=\\s*[\"\\']https?://",
+      "url\\(\\s*[\"\\']?https?://",
+      "\\bfetch\\s*\\(",
+      "@import\\s+url"
+    ],
+    "mustHave": [
+      "<!doctype html>",
+      "<meta[^>]+charset=[\"\\']?utf-8"
+    ],
+    "stage": "G1"
+  },
+  "jsSyntax": {
+    "files": [
+      "a/index.html",
+      "b/index.html",
+      {
+        "path": "final/index.html",
+        "stage": "G4"
+      }
+    ],
+    "stage": "G1"
+  },
+  "structure": [
+    {
+      "path": "audit/KEY.md",
+      "stage": "G2",
+      "rowPattern": "^\\|\\s*demo-[0-9]+\\s*\\|",
+      "minRows": 3,
+      "coverIdsFrom": "idsCoverage",
+      "forbid": [
+        "存疑项[：:]\\s*无",
+        "待补"
+      ]
+    },
+    {
+      "path": "audit/REVIEW.md",
+      "stage": "G3",
+      "rowPattern": "^\\|\\s*demo-[0-9]+\\s*\\|",
+      "minRows": 3,
+      "coverIdsFrom": "idsCoverage"
+    },
+    {
+      "path": "ROUNDS.md",
+      "stage": "G4",
+      "rowPattern": "^\\|\\s*R[0-9]+\\s*\\|",
+      "minRows": 1
+    }
+  ],
+  "mustMatch": [
+    {
+      "path": "a/NOTES.md",
+      "stage": "G1",
+      "patterns": [
+        "不足"
+      ],
+      "forbid": [
+        "不足[：:]\\s*无"
+      ]
+    },
+    {
+      "path": "b/NOTES.md",
+      "stage": "G1",
+      "patterns": [
+        "不足"
+      ],
+      "forbid": [
+        "不足[：:]\\s*无"
+      ]
+    },
+    {
+      "path": "audit/REVIEW.md",
+      "stage": "G3",
+      "patterns": [
+        "blocker",
+        "取谁"
+      ]
+    },
+    {
+      "path": "final/MERGE_NOTES.md",
+      "stage": "G4",
+      "patterns": [
+        "sha256",
+        "取"
+      ]
+    }
+  ],
+  "byteIdentical": [
+    {
+      "left": "final/index.html",
+      "right": "../delivery/demo.html",
+      "stage": "G4"
+    }
+  ],
+  "projectValidator": {
+    "path": "contract/validate.mjs",
+    "target": "final",
+    "emptyRun": true,
+    "stage": "G4"
+  }
+}

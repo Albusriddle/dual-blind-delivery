@@ -25,7 +25,7 @@ license: MIT
 | 单文件交付物（HTML 页面、报告、demo、PPT） | ★★★ |
 | 代码迁移/重构（同规格两套实现再择优） | ★★☆ |
 | 开放式创作（文案、设计） | ★★☆ 需要改写评分口径 |
-| 一次性小改、纯机械任务 | ★☆☆ 降级为单生产者 + 单复核（见 §6） |
+| 一次性小改、纯机械任务 | ★☆☆ 降级为单生产者 + 单复核（见「规模与成本」） |
 
 **不适用**：需要实时交互决策的任务、没有可验证判据的任务（如"做得好看点"）、成本远大于风险的任务。
 
@@ -72,7 +72,8 @@ license: MIT
 | **Lead** | 全部 | — | 合同、门禁脚本、合并、`MERGE_NOTES.md`、`ROUNDS.md` |
 | **生产者 A** | 源材料、合同 | `b/`、`audit/`、Lead 的答案草稿 | `a/` 全套 |
 | **生产者 B** | 源材料、合同 | `a/`、`audit/`、Lead 的答案草稿 | `b/` 全套 |
-| **复核员** | 源材料、合同、A、B | — （写 KEY 阶段：不许看 A/B） | `audit/KEY.md`、`audit/REVIEW.md`、`audit/FINAL_REVIEW.md` |
+| **复核员** | 源材料、合同、A、B | — （写 KEY 阶段：不许看 A/B） | `audit/KEY.md`、`audit/REVIEW.md`、`audit/ERRATA.json` |
+| **二审人**（可选） | 同上 + 一审报告 | — | `audit/FINAL_REVIEW.md` |
 
 四条硬规则：
 
@@ -94,15 +95,27 @@ license: MIT
 | 文件 | 作用 | 要点 |
 |---|---|---|
 | `contract/SPEC.md` | 唯一施工依据 | 交付物清单、数据结构、内容规范、功能验收、禁则、条目清单（id 必须逐字可对） |
-| `contract/gate.config.json` | 门禁参数 | 必需文件、条目 id 全集、自包含规则、字节一致性目标 |
-| `contract/validate.mjs` | 项目专属校验器 | 先写校验器，再开工 |
-| `contract/KEY_SPEC.md` | 基线格式 | 复核员的 KEY 必须长成什么样（字段级） |
+| `contract/gate.config.json` | 门禁参数 | 必需文件（带 stage）、条目 id 全集、自包含规则、结构断言、字节一致性目标 |
+| `contract/validate.mjs` | 项目专属校验器 | 由 `templates/validate.template.mjs` 派生；契约见下 |
+| `contract/KEY_SPEC.md` | 基线格式 | 由 `templates/KEY_SPEC.template.md` 派生；字段级约束（gate 会断言） |
+
+**校验器的唯一契约**（三处文档必须一致，否则新人无法照做）：
+
+```bash
+node contract/validate.mjs <target-dir>     # <target-dir> = a | b | final
+# 输出逐条 PASS/FAIL，最后一行 `N error(s)`；有 error 时 exit 1
+# 必须对空目录报错（G0 的"空跑自检"靠它证明门禁真的在检查）
+```
+
+**校验器里不许出现答案**：生产者能读到 `contract/`，若校验器写了期望值/正确选项/答案分布，双盲当场失效。
+结构性断言（id、字段、计数、枚举、正则、自包含、语法）放 `contract/validate.mjs`；
+统计性断言（正确项位置分布、真值比例）放 `audit/checks.mjs`，只给复核员用。
 
 **门禁 G0**
-- [ ] `validate.mjs` 对**空目录**跑一次会报错（证明它在检查，不是永远绿）
+- [ ] `validate.mjs` 对**空目录**跑一次会报错（gate 的 `projectValidator.emptyRun` 会自动验证）
 - [ ] 每条验收项可判真假（"覆盖 34 条"可以；"质量高"不行）
 - [ ] 条目 id 全集落盘，且与源材料条目一一对应
-- [ ] 禁则明确：不许外链/不许改源材料/不许读对方目录
+- [ ] 禁则明确：不许外链/不许改源材料/不许读对方目录/不许校验器含答案
 
 模板：[templates/SPEC.template.md](templates/SPEC.template.md)
 
@@ -134,10 +147,24 @@ license: MIT
 - 关键数值要**脚本复算**，不要只靠心算（本次复核员用离散事件模拟复算了调度题，才发现参考答案里两处表述含混）
 
 **门禁 G2**
-- [ ] KEY 覆盖 100% 条目（脚本统计覆盖数）
-- [ ] 每条含"关键中间量"而不只是最终答案（否则无法判"过程对答案错"）
-- [ ] 有「源材料存疑项」一节
-- [ ] 有独立性的自证（时间戳 / 提交顺序 / 未读声明）
+- [ ] KEY 覆盖 100% 条目（`gate.mjs` 的 `structure.coverIdsFrom` 逐 id 断言行）
+- [ ] 每条含「关键中间量」而不只是最终答案（`structure.rowPattern` 数行 + `mustMatch` 断字段名）
+- [ ] 有「源材料存疑项」一节（`mustMatch.forbid: ["存疑项[:：]\\s*无"]` 拦住"只写无"）
+- [ ] 有独立性的自证（时间戳 / 提交顺序 / 声明 + 抽查）
+
+**工程化隔离（别只靠提示词自觉）**
+
+复核员写 KEY 时，`a/`、`b/` 就在同一个工作区里。可靠做法是把它们**移出可达范围**：
+
+```bash
+mkdir -p _sealed && mv a b _sealed/          # G1 绿之后、叫复核员之前
+stat -c '%n %y' _sealed/a _sealed/b > _sealed/SEALED.mtime   # 留痕
+# 复核员写 KEY → 提交 → 记录 KEY 的 mtime 与哈希
+mv _sealed/a _sealed/b .                     # 再放回来，进 P3
+sha256sum _sealed/SEALED.mtime >> ROUNDS.md  # 提交顺序证据写进轮次记录
+```
+
+做不到移目录时（多会话共享工作区），至少：给复核员的提示词里**不出现** `a/`、`b/` 的路径，只给源材料与合同；等 KEY 落盘提交后再发第二条消息开放目录。事后用 `scripts/blindness.mjs` 兜底。
 
 ### P3 交叉复核（复核员）
 
@@ -162,8 +189,9 @@ license: MIT
 **门禁 G3**
 - [ ] 每个 id × 每侧都有判决，**没有"未检查"**
 - [ ] 每个 blocker 有可执行修法（不是"建议改进"）
-- [ ] 有逐项取谁表，且覆盖 100% 条目
+- [ ] 有逐项取谁表，且覆盖 100% 条目（`structure.coverIdsFrom` 会逐 id 数行）
 - [ ] 有骨架结论
+- [ ] 双方结论冲突时，按 [references/rubric.md](references/rubric.md) §5 的裁决阶梯处理，并写明用到了哪一级
 
 ### P4 合并与修复（Lead）
 
@@ -173,16 +201,22 @@ license: MIT
 
 **门禁 G4**
 - [ ] 每条 blocker 有关闭证据（表格：编号｜修法｜证据）
-- [ ] `validate` 0 error
-- [ ] `sha256(final/index.html) == sha256(交付副本)`
+- [ ] `validate` 0 error（gate 会**真的执行**校验器，不是检查文件在不在）
+- [ ] `sha256(final/index.html) == sha256(交付副本)`（gate 的 `byteIdentical`）
 - [ ] `MERGE_NOTES.md` 记录取用决策与偏离理由
+- [ ] **归档这一版**：`mkdir -p _versions/R{n} && cp -r final/* _versions/R{n}/`（Δ 复核的唯一依据）
 
 ### P5 二审（第二人或复核员新轮）
 
 二审**不是复述一审**，是**复跑断言**：
 
 1. 对照 G3/G4 的每条 blocker，**重新执行验证**（脚本、点击、比对），不接受"报告说已修"
-2. 对审核后发生的每处改动做 **Δ 复核**：列出改动清单 → 逐项断言
+2. 对审核后发生的每处改动做 **Δ 复核**：用
+   ```bash
+   node scripts/manifest.mjs <work> --diff _versions/R{上一轮}/MANIFEST.sha256
+   ```
+   拿到 added / removed / changed 清单 → 逐项断言。单文件 HTML 用
+   `diff -u _versions/R{n}/index.html final/index.html` 看具体改了哪几行
 3. 结论只能是：**通过 / 有条件通过（列出非阻塞项）/ 打回（有 blocker）**
 
 **门禁 G5**
@@ -268,12 +302,14 @@ license: MIT
 ```
 <work>/
 ├── contract/{SPEC.md, gate.config.json, validate.mjs, KEY_SPEC.md}
-├── a/{交付物..., NOTES.md}
-├── b/{交付物..., NOTES.md}
-├── audit/{KEY.md, REVIEW.md, ERRATA.json, FINAL_REVIEW.md}
-├── final/{交付物..., MERGE_NOTES.md}
+├── a/{交付物..., build.mjs, NOTES.md}
+├── b/{交付物..., build.mjs, NOTES.md}
+├── audit/{KEY.md, REVIEW.md, ERRATA.json(推荐), FINAL_REVIEW.md}
+├── final/{交付物..., data.json, build.mjs, MERGE_NOTES.md}
+├── _versions/R{n}/        # 每轮通过门禁的版本归档（Δ 复核依据）
 ├── ROUNDS.md              # 只追加，每轮一行
-└── MANIFEST.sha256        # 最终哈希清单
+├── MANIFEST.sha256        # 最终哈希清单
+└── tests/                 # 可选：项目自测脚本
 ```
 
 发布判据（全部满足）：
@@ -288,25 +324,50 @@ license: MIT
 
 ## 快速启动
 
+> 约定：`SKILL=/path/to/dual-blind-delivery`（skill 所在目录），`PWD=你的项目目录`。
+> 脚本用**绝对路径**调用，不要 cd 进 skill 目录再跑。
+
 ```bash
-# 1. 建工作区
+SKILL=/path/to/dual-blind-delivery
 mkdir -p work/{contract,a,b,audit,final}
 
-# 2. 写合同（照 templates/SPEC.template.md），写校验器，然后空跑确认它会报错
-node work/contract/validate.mjs work          # 预期：FAIL（证明检查有效）
+# 1. 合同四件套
+cp $SKILL/templates/SPEC.template.md        work/contract/SPEC.md
+cp $SKILL/templates/KEY_SPEC.template.md    work/contract/KEY_SPEC.md
+cp $SKILL/templates/validate.template.mjs   work/contract/validate.mjs
+cp $SKILL/examples/gate.config.json         work/contract/gate.config.json
+#    改 gate.config.json 的 idsCoverage.expect / files / byteIdentical
+#    改 validate.mjs 顶部的 EXPECT 常量
+
+# 2. 空跑自检：校验器必须对空目录报错
+node work/contract/validate.mjs $(mktemp -d)     # 预期 exit 1
+node $SKILL/scripts/gate.mjs work --stage G0      # 预期：空跑自检 ok，其余因文件缺失而红
 
 # 3. 起两个盲生产者（提示词见 references/prompts.md，两份逐字相同，只换目录）
-#    → 各自通过 validate 后回来
+#    → 各自 `node work/contract/validate.mjs a`（或 b）0 error 后回来
 
 # 4. 门禁 G1
-node scripts/blindness.mjs work
+node $SKILL/scripts/gate.mjs work --stage G1
+node $SKILL/scripts/blindness.mjs work
 
-# 5. 复核员写 KEY（此时不给它看 a/ b/），再交叉复核
+# 5. 复核员写 KEY（此时把 a/ b/ 移到 _sealed/），再交叉复核
+node $SKILL/scripts/gate.mjs work --stage G2
 
 # 6. 合并 → G4 → 二审 → G5
-node scripts/gate.mjs work          # 全部绿再发
-node scripts/manifest.mjs work      # 出哈希清单
+node $SKILL/scripts/gate.mjs work --stage G4
+node $SKILL/scripts/manifest.mjs work --extra "D:/交付/成品.html"
+#    归档：mkdir -p _versions/R2 && cp -r final/* _versions/R2/ && cp MANIFEST.sha256 _versions/R2/
+node $SKILL/scripts/gate.mjs work                 # 全量，绿了再发
+node $SKILL/scripts/manifest.mjs work --check     # 交付前最后一道
 ```
+
+**先跑一遍自带的回归套件**，确认门禁本身是有效的（它会构造 22 个"应该红/应该绿"的场景）：
+
+```bash
+node $SKILL/tests/run.mjs        # 期望：22 passed, 0 failed
+```
+
+**参考锚点**：`examples/minimal-work/` 是一个能让 gate + blindness + manifest **全绿**的最小工作区。第一次搭自己的 work 时，先把它复制过去看什么算"绿"，再往里填真内容。
 
 ---
 

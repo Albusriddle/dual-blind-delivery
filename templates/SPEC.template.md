@@ -21,6 +21,8 @@
 
 硬性要求：
 - {{SELF_CONTAINED_RULES}}（如：单文件、无外链、file:// 可用、无 fetch）
+- 构建命令固定为 `{{BUILD_CMD}}`，重跑两次产物哈希必须相同
+- 校验命令固定为 `node contract/validate.mjs <a|b|final>`，最后一行 `N error(s)`，有 error 退出 1
 - 体积区间：{{SIZE_RANGE}}
 - 运行环境：{{RUNTIME}}
 
@@ -70,12 +72,15 @@
 - 不许引入外部依赖 / 不许 `npm install`
 - 不许在交付物里留 `http(s)://` 引用
 - 不许为了好看删条件、不许把参考答案原样贴进"解析"字段
+- **不许在 `contract/validate.mjs` 里写答案/期望值**（生产者能读到 contract/，写了等于泄题）；
+  统计性断言（正确项位置分布、真假比例）放 `audit/checks.mjs`，只给复核员
 
 ## 7. 自检义务
 
 ```bash
-{{VALIDATE_CMD}}      # 必须 0 error
-{{BUILD_CMD}}         # 必须可重复产出同样结果
+node contract/validate.mjs <你的目录>   # 必须 0 error
+{{BUILD_CMD}}                          # 必须可重复产出同样结果（两次哈希一致）
+node $SKILL/scripts/gate.mjs <work> --stage G1   # GATE PASS
 ```
 
 `NOTES.md` 必须包含：

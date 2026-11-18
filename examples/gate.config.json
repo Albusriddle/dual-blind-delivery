@@ -1,53 +1,99 @@
 {
-  "_comment": "示例配置：单文件 HTML 交付（题库类）。复制到 <work>/contract/gate.config.json 后按项目改。",
+  "_comment": "示例：单文件 HTML 交付（题库类）。复制到 <work>/contract/gate.config.json，按项目改 idsCoverage.expect 与 files 列表。files 里的 {path,stage} 表示该文件到哪个阶段才要求存在。",
+
   "requiredFiles": [
-    { "path": "contract/SPEC.md" },
-    { "path": "contract/validate.mjs" },
-    { "path": "a/index.html", "hint": "生产者 A 的产物" },
-    { "path": "a/data.json" },
-    { "path": "a/NOTES.md", "hint": "必须含自检证据与已知不足" },
-    { "path": "b/index.html" },
-    { "path": "b/data.json" },
-    { "path": "b/NOTES.md" },
-    { "path": "audit/KEY.md", "hint": "复核员的独立基线" },
-    { "path": "audit/REVIEW.md" },
-    { "path": "audit/FINAL_REVIEW.md", "optional": true },
-    { "path": "final/index.html" },
-    { "path": "final/MERGE_NOTES.md" },
-    { "path": "ROUNDS.md" }
+    { "path": "contract/SPEC.md", "stage": "G0" },
+    { "path": "contract/gate.config.json", "stage": "G0" },
+    { "path": "contract/validate.mjs", "stage": "G0", "hint": "由 templates/validate.template.mjs 派生" },
+    { "path": "contract/KEY_SPEC.md", "stage": "G0" },
+
+    { "path": "a/index.html", "stage": "G1" },
+    { "path": "a/data.json", "stage": "G1" },
+    { "path": "a/NOTES.md", "stage": "G1", "hint": "必须含自检证据与已知不足" },
+    { "path": "b/index.html", "stage": "G1" },
+    { "path": "b/data.json", "stage": "G1" },
+    { "path": "b/NOTES.md", "stage": "G1" },
+
+    { "path": "audit/KEY.md", "stage": "G2", "hint": "复核员的独立基线" },
+    { "path": "audit/REVIEW.md", "stage": "G3" },
+    { "path": "audit/ERRATA.json", "stage": "G3", "optional": true },
+
+    { "path": "final/index.html", "stage": "G4" },
+    { "path": "final/data.json", "stage": "G4" },
+    { "path": "final/MERGE_NOTES.md", "stage": "G4" },
+    { "path": "ROUNDS.md", "stage": "G4" },
+    { "path": "audit/FINAL_REVIEW.md", "stage": "G5" }
   ],
 
   "idsCoverage": {
     "expect": ["demo-1", "demo-2", "demo-3"],
-    "files": ["a/index.html", "b/index.html", "final/index.html"]
+    "files": ["a/index.html", "b/index.html", { "path": "final/index.html", "stage": "G4" }],
+    "idPattern": "id=\"(demo-[0-9]+)\"",
+    "stage": "G1"
   },
 
   "selfContained": {
-    "files": ["a/index.html", "b/index.html", "final/index.html"],
+    "files": ["a/index.html", "b/index.html", { "path": "final/index.html", "stage": "G4" }],
     "forbid": [
       "<script[^>]+src\\s*=",
-      "<link[^>]+href\\s*=\\s*[\"']https?://",
+      "<link[^>]+href\\s*=\\s*(?![\"']?(?:data:|#))",
+      "<(?:img|video|audio|iframe|source)[^>]+src\\s*=",
       "(?:src|href)\\s*=\\s*[\"']https?://",
       "url\\(\\s*[\"']?https?://",
       "\\bfetch\\s*\\(",
       "\\bimport\\s*\\(",
       "@import\\s+url"
     ],
-    "mustHave": ["<meta[^>]+charset=[\"']?utf-8", "<!doctype html>"]
+    "mustHave": ["<!doctype html>", "<meta[^>]+charset=[\"']?utf-8"],
+    "stage": "G1"
   },
 
-  "jsSyntax": { "files": ["a/index.html", "b/index.html", "final/index.html"] },
+  "jsSyntax": {
+    "files": ["a/index.html", "b/index.html", { "path": "final/index.html", "stage": "G4" }],
+    "stage": "G1"
+  },
 
-  "byteIdentical": [
-    { "left": "final/index.html", "right": "../../delivery/交付物.html" }
+  "structure": [
+    {
+      "path": "audit/KEY.md",
+      "stage": "G2",
+      "rowPattern": "^\\|\\s*demo-[0-9]+\\s*\\|",
+      "minRows": 3,
+      "coverIdsFrom": "idsCoverage",
+      "forbid": ["存疑项[：:]\\s*无", "待补"]
+    },
+    {
+      "path": "audit/REVIEW.md",
+      "stage": "G3",
+      "rowPattern": "^\\|\\s*demo-[0-9]+\\s*\\|",
+      "minRows": 3,
+      "coverIdsFrom": "idsCoverage"
+    },
+    {
+      "path": "ROUNDS.md",
+      "stage": "G4",
+      "rowPattern": "^\\|\\s*R[0-9]+\\s*\\|",
+      "minRows": 1
+    }
   ],
 
   "mustMatch": [
-    { "path": "a/NOTES.md", "patterns": ["不足", "validate"] },
-    { "path": "b/NOTES.md", "patterns": ["不足", "validate"] },
-    { "path": "audit/REVIEW.md", "patterns": ["blocker", "取谁"] },
-    { "path": "final/MERGE_NOTES.md", "patterns": ["sha256", "取"] }
+    { "path": "a/NOTES.md", "stage": "G1", "patterns": ["不足", "validate"], "forbid": ["不足[：:]\\s*无"] },
+    { "path": "b/NOTES.md", "stage": "G1", "patterns": ["不足", "validate"], "forbid": ["不足[：:]\\s*无"] },
+    { "path": "audit/KEY.md", "stage": "G2", "patterns": ["独立性声明", "关键中间量"] },
+    { "path": "audit/REVIEW.md", "stage": "G3", "patterns": ["blocker", "取谁"] },
+    { "path": "final/MERGE_NOTES.md", "stage": "G4", "patterns": ["sha256", "取"] },
+    { "path": "audit/FINAL_REVIEW.md", "stage": "G5", "patterns": ["Δ", "结论"] }
   ],
 
-  "projectValidator": { "path": "contract/validate.mjs", "enabled": true }
+  "byteIdentical": [
+    { "left": "final/index.html", "right": "../delivery/交付物.html", "base": "config", "stage": "G4" }
+  ],
+
+  "projectValidator": {
+    "path": "contract/validate.mjs",
+    "target": "final",
+    "emptyRun": true,
+    "stage": "G4"
+  }
 }

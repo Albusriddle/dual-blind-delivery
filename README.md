@@ -40,6 +40,11 @@ git clone https://github.com/Albusriddle/dual-blind-delivery.git \
   ~/.dsh/skills/dual-blind-delivery
 ```
 
+```powershell
+# Windows PowerShell
+git clone https://github.com/Albusriddle/dual-blind-delivery.git "$env:USERPROFILE\.dsh\skills\dual-blind-delivery"
+```
+
 （Windows: `%USERPROFILE%\.dsh\skills\dual-blind-delivery`）
 
 重启会话后，skill 会出现在可用列表里；说「双盲产出」「第三人复核」「两套独立做再比对」即可触发。
@@ -53,13 +58,18 @@ git clone https://github.com/Albusriddle/dual-blind-delivery.git \
 ## 快速上手
 
 ```bash
+SKILL=/path/to/dual-blind-delivery
 mkdir -p work/{contract,a,b,audit,final}
-cp templates/SPEC.template.md work/contract/SPEC.md
-cp examples/gate.config.json work/contract/gate.config.json
-# 写 contract/validate.mjs，并**空跑一次确认它会报错**
-node scripts/gate.mjs work            # 现在应该是红的
-node scripts/blindness.mjs work       # 双盲隔离检查
-node scripts/manifest.mjs work        # 发布哈希清单
+cp $SKILL/templates/SPEC.template.md      work/contract/SPEC.md
+cp $SKILL/templates/KEY_SPEC.template.md  work/contract/KEY_SPEC.md
+cp $SKILL/templates/validate.template.mjs work/contract/validate.mjs
+cp $SKILL/examples/gate.config.json       work/contract/gate.config.json
+
+node $SKILL/tests/run.mjs                       # 先确认门禁本身有效：22 passed
+node work/contract/validate.mjs $(mktemp -d)    # 空跑必须报错
+node $SKILL/scripts/gate.mjs work --stage G1    # 逐阶段放行
+node $SKILL/scripts/blindness.mjs work          # 双盲隔离
+node $SKILL/scripts/manifest.mjs work --extra "<交付副本>"   # 发布哈希
 ```
 
 派工提示词直接用 `references/prompts.md` 里的模板（两个生产者的提示词**必须逐字相同**）。
@@ -88,7 +98,10 @@ scripts/
   blindness.mjs               # 双盲隔离检查（交叉引用/独有措辞/相似度）
   manifest.mjs                # sha256 清单 + 校验
 examples/
-  gate.config.json            # 门禁配置样例
+  gate.config.json            # 门禁配置样例（v2：stage / structure / validator）
+  minimal-work/               # 能让三个脚本全绿的最小工作区（照抄的锚点）
+tests/
+  run.mjs                     # 22 个回归用例：每个"应该红"的场景都必须真的红
 ```
 
 ---
@@ -125,7 +138,8 @@ examples/
 2. **门禁机械化**：能写成断言的不靠人看。
 3. **提出方复验**：修没修好，由发现问题的人说了算。
 4. **整门禁复跑**：修复会引入回归，只验失败项等于没验。
-5. **字节可追溯**：发布 = 二审通过的那一版字节，一字不差。
+5. **字节可追溯**：发布 = 二审通过的那一版字节，一字不差（`_versions/` + `sha256`）。
+6. **门禁可自证**：`tests/run.mjs` 构造 22 个对抗场景，证明校验器不是永远绿。
 6. **返工留痕**：`ROUNDS.md` 让每一轮红绿灯都能复盘。
 
 ---

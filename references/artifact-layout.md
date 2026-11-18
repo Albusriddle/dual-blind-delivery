@@ -25,6 +25,8 @@
 │   ├── data.json          # 中间数据（若适用）
 │   ├── build.mjs
 │   └── MERGE_NOTES.md     # 取谁、修了什么、哈希
+├── _versions/R{n}/        # 每轮通过门禁的版本归档（Δ 复核依据）
+├── _sealed/               # 写 KEY 期间把 a/ b/ 移到这里
 ├── ROUNDS.md              # 只追加：每轮门禁记录
 └── MANIFEST.sha256        # 交付物哈希清单
 ```
@@ -84,6 +86,14 @@ sha256sum -c MANIFEST.sha256              # 校验（Git Bash 可用）
 
 **交付副本也要进清单**——这是"审的是不是这一版"的唯一硬证据。
 
+`--extra` 传入的路径按 <work> 相对记录（在 work 之外会记成 `../xxx`）：
+
+```bash
+node scripts/manifest.mjs work --extra "D:/交付/成品.html"
+node scripts/manifest.mjs work --check          # 缺失/变更/**新增**都算失败
+node scripts/manifest.mjs work --diff _versions/R2/MANIFEST.sha256   # Δ 复核用
+```
+
 ---
 
 ## 5. 交付副本的落地
@@ -93,13 +103,38 @@ sha256sum -c MANIFEST.sha256              # 校验（Git Bash 可用）
 | 构建 | `node final/build.mjs` | `validate` 0 error |
 | 复制 | `cp final/index.html "<用户目录>/<中文名>.html"` | — |
 | 一致性 | `sha256sum` 两个文件 | 必须相同 |
+| 路径写法 | `gate.config.json` 里 `byteIdentical.right` 默认**相对配置文件目录**解析（`"base": "config"`），写 `"base": "work"` 才相对工作区 | 二者差一层目录，写错必红 |
 | 记录 | 两个哈希写进 `MERGE_NOTES.md` | — |
 
 > 实战教训：曾经出现"改了 `final/` 但交付副本还是上一版"，只靠人眼完全看不出来。字节校验是唯一可靠手段。
 
 ---
 
-## 6. 临时文件与清理
+## 6. 版本归档与 Δ 复核
+
+每轮 G4 绿后立刻归档，否则"上一轮通过的是哪一版"就无从谈起：
+
+```bash
+mkdir -p _versions/R2 && cp -r final/* _versions/R2/
+cp MANIFEST.sha256 _versions/R2/
+```
+
+Δ 范围 = `manifest.mjs <work> --diff _versions/R<n>/MANIFEST.sha256` 的 added/removed/changed。
+
+## 7. 隔离的工程手段
+
+```bash
+# G1 绿、叫复核员之前
+mkdir -p _sealed && mv a b _sealed/
+stat -c '%n %y' _sealed/a _sealed/b > _sealed/SEALED.mtime
+# KEY 落盘并记录哈希后
+mv _sealed/a _sealed/b .
+sha256sum _sealed/SEALED.mtime >> ROUNDS.md
+```
+
+做不到移目录时：给复核员的提示词里不出现 `a/`、`b/` 的路径，等 KEY 提交后再开放。
+
+## 8. 临时文件与清理
 
 - 允许保留：`_parts/`、`_test/`、`_lead/preview/`
 - 必须在发布前删除：任何会**修改用户数据**的调试页（例如清空 localStorage 的 `clear.html`）
