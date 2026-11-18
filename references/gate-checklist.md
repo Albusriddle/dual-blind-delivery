@@ -40,7 +40,7 @@
 - [ ] `node $SKILL/scripts/gate.mjs $WORK --stage G1` → GATE PASS
 - [ ] A/B 条目数与合同一致（不是"差不多"）
 - [ ] A/B 各有 `NOTES.md`，含：构建命令、validate 输出、自测记录、**已知不足 ≥1 条**
-- [ ] `node scripts/blindness.mjs <work>` → PASS
+- [ ] `node $SKILL/scripts/blindness.mjs <work>` → PASS
       - 产物中不含对方目录名
       - 不含对方独有措辞（抽 5 条对方高频短语做反向检索）
 - [ ] id 覆盖用**词边界/精确模式**断言（`idsCoverage.idPattern`），不是子串包含

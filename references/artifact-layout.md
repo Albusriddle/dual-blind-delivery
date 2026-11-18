@@ -72,7 +72,7 @@
 ## 4. 哈希清单（MANIFEST.sha256）
 
 ```bash
-node scripts/manifest.mjs <work>          # 生成
+node $SKILL/scripts/manifest.mjs <work>          # 生成
 sha256sum -c MANIFEST.sha256              # 校验（Git Bash 可用）
 ```
 
@@ -89,9 +89,9 @@ sha256sum -c MANIFEST.sha256              # 校验（Git Bash 可用）
 `--extra` 传入的路径按 <work> 相对记录（在 work 之外会记成 `../xxx`）：
 
 ```bash
-node scripts/manifest.mjs work --extra "D:/交付/成品.html"
-node scripts/manifest.mjs work --check          # 缺失/变更/**新增**都算失败
-node scripts/manifest.mjs work --diff _versions/R2/MANIFEST.sha256   # Δ 复核用
+node $SKILL/scripts/manifest.mjs work --extra "D:/交付/成品.html"
+node $SKILL/scripts/manifest.mjs work --check          # 缺失/变更/**新增**都算失败
+node $SKILL/scripts/manifest.mjs work --diff _versions/R2/MANIFEST.sha256   # Δ 复核用
 ```
 
 ---

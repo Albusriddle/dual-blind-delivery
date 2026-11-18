@@ -1,6 +1,6 @@
 ---
 name: dual-blind-delivery
-description: "Use this skill when a deliverable must be produced and independently verified — quiz banks, study pages, technical docs, data extraction, translations, code migrations, exam/answer keys, or any artifact where one author's blind spots are the main risk. Triggers include: '双盲产出', '双盲', '两个人独立做再比对', '第三人复核', '独立复核', '交叉复核', '二审', '定稿前找人审一遍', 'dual-blind', 'independent second opinion', 'cross-review', 'two independent producers'. Also trigger when the user says '不要一个人写完就交', '每轮审出问题都要返工', or asks for a quality gate that must be clean before moving on."
+description: "Use this skill when a deliverable must be produced and independently verified — quiz banks, study pages, technical docs, data extraction, translations, code migrations, exam/answer keys, or any artifact where one author's blind spots are the main risk. Triggers include: '双盲产出', '双盲', '两个人独立做再比对', '第三人复核', '独立复核', '交叉复核', '二审', '定稿前找人审一遍', 'dual-blind', 'independent second opinion', 'cross-review', 'two independent producers', '题库核对', '交付验收', '答案核对'. Also trigger when the user says '不要一个人写完就交', '每轮审出问题都要返工', or asks for a quality gate that must be clean before moving on."
 license: MIT
 ---
 
@@ -133,7 +133,7 @@ node contract/validate.mjs <target-dir>     # <target-dir> = a | b | final
 **门禁 G1**
 - [ ] A `validate` 0 error；B `validate` 0 error（两份输出贴进 `ROUNDS.md`）
 - [ ] 条目数与合同一致，两端都**完整**
-- [ ] `node scripts/blindness.mjs <work>` 通过（产物无对方路径引用、无对方独有措辞）
+- [ ] `node $SKILL/scripts/blindness.mjs <work>` 通过（产物无对方路径引用、无对方独有措辞）
 - [ ] 两份 NOTES.md 都含自检证据 + 已知不足
 
 **不过门禁就不许叫复核员看。** 半成品进审 = 浪费复核预算。
@@ -213,7 +213,7 @@ sha256sum _sealed/SEALED.mtime >> ROUNDS.md  # 提交顺序证据写进轮次记
 1. 对照 G3/G4 的每条 blocker，**重新执行验证**（脚本、点击、比对），不接受"报告说已修"
 2. 对审核后发生的每处改动做 **Δ 复核**：用
    ```bash
-   node scripts/manifest.mjs <work> --diff _versions/R{上一轮}/MANIFEST.sha256
+   node $SKILL/scripts/manifest.mjs <work> --diff _versions/R{上一轮}/MANIFEST.sha256
    ```
    拿到 added / removed / changed 清单 → 逐项断言。单文件 HTML 用
    `diff -u _versions/R{n}/index.html final/index.html` 看具体改了哪几行
