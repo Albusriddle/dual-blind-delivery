@@ -79,10 +79,20 @@ check('B3a：A/B 产物逐字节相同 → blindness 必须红', d => {
   const r = run('blindness.mjs', [d]);
   return { ok: r.code === 1 && /逐字节相同/.test(r.out), why: r.out };
 });
-check('B3b：Windows 反斜杠引用 ..\\b\\ → blindness 必须红', d => {
-  write(P(d, 'a/NOTES.md'), read(P(d, 'a/NOTES.md')) + '\n参考: ..\\\\b\\\\index.html\n');
+check('B3b：Windows 反斜杠引用 ..\\b\\index.html → blindness 必须红', d => {
+  write(P(d, 'a/NOTES.md'), read(P(d, 'a/NOTES.md')) + '\n参考: ..\\b\\index.html\n');
   const r = run('blindness.mjs', [d]);
-  return { ok: r.code === 1 && /引用了对方目录/.test(r.out), why: r.out };
+  return { ok: r.code === 1 && /指向对方目录的文件引用/.test(r.out), why: r.out };
+});
+check('B3d：仅提及目录名（"未读取 b/"）→ 只 warn，不阻断', d => {
+  write(P(d, 'a/NOTES.md'), read(P(d, 'a/NOTES.md')) + '\n隔离声明：未读取 b/ 目录。\n');
+  const r = run('blindness.mjs', [d]);
+  return { ok: r.code === 0 && /仅提及目录名/.test(r.out), why: r.out };
+});
+check('B3e：数学式 a/b 不应被误判为交叉引用', d => {
+  write(P(d, 'b/README.md'), '# 推导\n占比 = a/b，其中 b>0；交换相邻两作业后减少 a−b。\n');
+  const r = run('blindness.mjs', [d]);
+  return { ok: r.code === 0 && !/指向对方目录的文件引用/.test(r.out), why: r.out };
 });
 check('B3c：整句重合率超阈值 → blindness 必须红', d => {
   const copy = read(P(d, 'a/index.html')).replace(/A 方案/g, 'B 方案').replace(/__A_BUILD/g, '__B_BUILD');
