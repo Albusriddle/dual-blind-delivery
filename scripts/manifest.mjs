@@ -44,6 +44,9 @@ const relOf = p => path.relative(WORK, p).split(path.sep).join('/');
 const absOf = r => path.resolve(WORK, r);
 
 function collect() {
+  for (const f of extraFiles) {
+    if (!fs.existsSync(f)) { console.error(`FATAL --extra 指向的文件不存在: ${f}`); process.exit(2); }
+  }
   const files = [...walk(path.join(WORK, 'final')), ...extraFiles];
   const map = new Map();
   for (const f of files) map.set(relOf(f), sha(f));

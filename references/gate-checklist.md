@@ -57,7 +57,7 @@
 
 - [ ] `audit/KEY.md` 覆盖 100% 条目：`node $SKILL/scripts/gate.mjs $WORK --stage G2`（`structure.coverIdsFrom` 逐 id 断言）
 - [ ] 每条含：id、核心条件（数字级）、关键中间量、最终结论、≥2 条易错点
-- [ ] 有「源材料存疑项」一节（无则写"无"）
+- [ ] 有「源材料存疑项」一节（无则写"无（已逐条复算，与源材料一致）"——只写"无"会被 `structure.forbid` 判红）
 - [ ] 关键数值经过脚本/工具复算（不是纯手推）
 - [ ] 独立性自证（三选一，写在文件开头）：时间戳 / 提交顺序 / 声明 + 抽查
 - [ ] KEY 的格式与 `contract/KEY_SPEC.md` 一致，且 `structure` 的行数/字段断言通过

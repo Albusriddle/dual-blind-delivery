@@ -68,7 +68,7 @@ cp $SKILL/examples/gate.config.json       work/contract/gate.config.json
 node $SKILL/tests/run.mjs                       # 先确认门禁本身有效：22 passed
 node work/contract/validate.mjs $(mktemp -d)    # 空跑必须报错
 node $SKILL/scripts/gate.mjs work --stage G1    # 逐阶段放行
-node $SKILL/scripts/blindness.mjs work          # 双盲隔离
+node $SKILL/scripts/blindness.mjs work --sources "源材料"   # 双盲隔离（剔除共享题干句）
 node $SKILL/scripts/manifest.mjs work --extra "<交付副本>"   # 发布哈希
 ```
 

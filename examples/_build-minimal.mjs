@@ -56,7 +56,7 @@ W('contract/gate.config.json', JSON.stringify({
   },
   jsSyntax: { files: ['a/index.html', 'b/index.html', { path: 'final/index.html', stage: 'G4' }], stage: 'G1' },
   structure: [
-    { path: 'audit/KEY.md', stage: 'G2', rowPattern: '^\\|\\s*demo-[0-9]+\\s*\\|', minRows: 3, coverIdsFrom: 'idsCoverage', forbid: ['存疑项[：:]\\s*无', '待补'] },
+    { path: 'audit/KEY.md', stage: 'G2', rowPattern: '^\\|\\s*demo-[0-9]+\\s*\\|', minRows: 3, coverIdsFrom: 'idsCoverage', forbid: ['存疑项[：:]\\s*无(?![（(])', '待补'] },
     { path: 'audit/REVIEW.md', stage: 'G3', rowPattern: '^\\|\\s*demo-[0-9]+\\s*\\|', minRows: 3, coverIdsFrom: 'idsCoverage' },
     { path: 'ROUNDS.md', stage: 'G4', rowPattern: '^\\|\\s*R[0-9]+\\s*\\|', minRows: 1 }
   ],

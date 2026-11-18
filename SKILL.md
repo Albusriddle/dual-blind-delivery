@@ -341,14 +341,14 @@ cp $SKILL/examples/gate.config.json         work/contract/gate.config.json
 
 # 2. 空跑自检：校验器必须对空目录报错
 node work/contract/validate.mjs $(mktemp -d)     # 预期 exit 1
-node $SKILL/scripts/gate.mjs work --stage G0      # 预期：空跑自检 ok，其余因文件缺失而红
+node $SKILL/scripts/gate.mjs work --stage G0      # 预期：GATE PASS（G0 只跑空跑自检；四件套已就位）
 
 # 3. 起两个盲生产者（提示词见 references/prompts.md，两份逐字相同，只换目录）
 #    → 各自 `node work/contract/validate.mjs a`（或 b）0 error 后回来
 
 # 4. 门禁 G1
 node $SKILL/scripts/gate.mjs work --stage G1
-node $SKILL/scripts/blindness.mjs work
+node $SKILL/scripts/blindness.mjs work --sources "源材料目录"   # 剔除两侧都逐字保留的题干句
 
 # 5. 复核员写 KEY（此时把 a/ b/ 移到 _sealed/），再交叉复核
 node $SKILL/scripts/gate.mjs work --stage G2

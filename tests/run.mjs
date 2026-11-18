@@ -178,6 +178,48 @@ check('用法：工作区不存在 → exit 2', () => {
   return { ok: r.code === 2 && /工作区不存在/.test(r.out), why: r.out };
 });
 
+/* ---------------- R2 复验提出的 4 条 ---------------- */
+check('R2-1a：两侧逐字保留源材料题干 → 传 --sources 后应绿', d => {
+  const shared = '某系统采用虚拟内存，内存命中耗时一百纳秒，缺页时需要磁盘调页。';
+  const src = P(d, 'source.txt');
+  write(src, shared + '\n');
+  for (const side of ['a', 'b']) {
+    const f = P(d, side, 'index.html');
+    write(f, read(f).replace('</body>', '<p>' + shared + '</p></body>'));
+  }
+  const r = run('blindness.mjs', [d, '--sources', src]);
+  return { ok: r.code === 0 && /已剔除源材料原文句/.test(r.out), why: r.out };
+});
+check('R2-1b：同样的共享句，不传 --sources → 应红（阈值生效）', d => {
+  const shared = '某系统采用虚拟内存，内存命中耗时一百纳秒，缺页时需要磁盘调页。';
+  for (const side of ['a', 'b']) {
+    const f = P(d, side, 'index.html');
+    write(f, read(f).replace('</body>', '<p>' + shared + '</p></body>'));
+  }
+  const r = run('blindness.mjs', [d]);
+  return { ok: r.code === 1 && /整句重合率/.test(r.out), why: r.out };
+});
+check('R2-2：byteIdentical 逐项 stage 生效（G5 项在 G4 不检查）', d => {
+  const cf = P(d, 'contract/gate.config.json');
+  const c = JSON.parse(read(cf));
+  c.byteIdentical[0].stage = 'G5';
+  write(cf, JSON.stringify(c, null, 2));
+  fs.rmSync(P(d, 'delivery/demo.html'));
+  const r = run('gate.mjs', [d, '--stage', 'G4']);
+  return { ok: r.code === 0, why: r.out };
+});
+check('R2-3：manifest --extra 指向不存在文件 → exit 2 且信息清晰', d => {
+  const r = run('manifest.mjs', [d, '--extra', P(d, 'nope.html')]);
+  return { ok: r.code === 2 && /不存在/.test(r.out) && !/at Object/.test(r.out), why: r.out };
+});
+check('R2-4：英文交付按行切句（不再退化为整文件比较）', d => {
+  const line = 'The scheduler picks the shortest remaining time job first every time.';
+  write(P(d, 'a/README.md'), line + '\n' + 'Alpha build only.\n');
+  write(P(d, 'b/README.md'), line + '\n' + 'Bravo build only.\n');
+  const r = run('blindness.mjs', [d]);
+  return { ok: r.code === 1 && /整句重合率/.test(r.out), why: r.out };
+});
+
 /* ---------------- 汇总 ---------------- */
 console.log(`\n${fail ? C.r : C.g}${pass} passed, ${fail} failed${C.x}`);
 process.exit(fail ? 1 : 0);

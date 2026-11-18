@@ -178,8 +178,9 @@ function balance(src) {
 }
 
 /* ---------- 5. 字节一致（基准：config 目录 / work 目录可选） ---------- */
-if (cfg.byteIdentical && active(stateOfByte())) {
+if (cfg.byteIdentical) {
   for (const pair of cfg.byteIdentical) {
+    if (!active(pair.stage || cfg.byteIdentical.stage || 'G4')) continue;
     const base = pair.base === 'work' ? WORK : CONFIG_DIR;
     const L = path.isAbsolute(pair.left) ? pair.left : path.join(WORK, pair.left);
     const R = path.isAbsolute(pair.right) ? pair.right : path.join(base, pair.right);
@@ -192,7 +193,6 @@ if (cfg.byteIdentical && active(stateOfByte())) {
     else err(`字节不一致 ${L}(${a.slice(0, 12)}) ≠ ${R}(${b.slice(0, 12)})`);
   }
 }
-function stateOfByte() { return cfg.byteIdentical.stage || 'G4'; }
 
 /* ---------- 6. 结构断言（KEY / REVIEW / MERGE_NOTES 不能是空壳） ---------- */
 if (cfg.structure && active(null)) {

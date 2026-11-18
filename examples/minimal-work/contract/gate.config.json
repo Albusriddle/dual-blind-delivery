@@ -118,7 +118,7 @@
       "minRows": 3,
       "coverIdsFrom": "idsCoverage",
       "forbid": [
-        "存疑项[：:]\\s*无",
+        "存疑项[：:]\\s*无(?![（(])",
         "待补"
       ]
     },
